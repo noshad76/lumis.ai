@@ -1,0 +1,234 @@
+@import "tailwindcss";
+
+/* =========================================
+   📥 Font Declarations
+   ========================================= */
+@font-face {
+  font-family: "Vazir";
+  src: url("/fonts/Vazir-FD-WOL.ttf") format("truetype");
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
+@font-face {
+  font-family: "Sora";
+  src: url("/fonts/Sora-VariableFont_wght.ttf") format("truetype");
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0100-017F, U+0180-024F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-214F;
+}
+
+/* =========================================
+   ☀️ Theme: Professional Light (Logo Based)
+   ========================================= */
+:root {
+  /* Backgrounds: Preventing eye strain with off-white */
+  --bg: #F8FAFC; 
+  --surface: #FFFFFF; 
+  --surface-muted: #F1F5F9; 
+  
+  /* Borders: Using the navy logo tint for borders */
+  --border: #E2E8F0; 
+  --border-soft: #F1F5F9; 
+  
+  /* Typography: Navy Blue from Logo (#2D3D50) */
+  --text: #2D3D50; 
+  --text-soft: #475569; 
+  --text-muted: #94A3B8; 
+  
+  /* Brand Colors: Solar Orange (#F29924) */
+  --primary: #F29924; 
+  --primary-hover: #D9851E;
+  --primary-soft: rgba(242, 153, 36, 0.08); 
+  
+  /* Accent: Navy Blue from Logo */
+  --accent: #2D3D50; 
+  --accent-soft: rgba(45, 61, 80, 0.06);
+  
+  --ring: rgba(242, 153, 36, 0.25);
+
+  /* Status Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+}
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
+  --color-text: var(--text);
+  --color-text-soft: var(--text-soft);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-xs: 0 1px 2px rgba(45, 61, 80, 0.05);
+  --shadow-sm: 0 4px 6px -1px rgba(45, 61, 80, 0.07);
+  --shadow-md: 0 10px 15px -3px rgba(45, 61, 80, 0.08);
+  --shadow-lg: 0 20px 25px -5px rgba(45, 61, 80, 0.1);
+
+  --font-sans: "Sora", "Vazir", ui-sans-serif, system-ui;
+  --sidebar-width: 280px;
+}
+
+/* =========================================
+   🛠 Base Styles
+   ========================================= */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--text);
+    font-weight: 700;
+  }
+}
+
+/* =========================================
+   🖋 Complete Text Styles (Utilities)
+   ========================================= */
+
+/* Hero / Special Display */
+@utility text-display {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Main Page Titles */
+@utility text-title-1 {
+  font-size: 2.25rem; /* 36px */
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Section Titles */
+@utility text-title-2 {
+  font-size: 1.875rem; /* 30px */
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+/* Subsection / Card Titles */
+@utility text-title-3 {
+  font-size: 1.5rem; /* 24px */
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+/* Standard UI Headings */
+@utility text-headline {
+  font-size: 1.25rem; /* 20px */
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+/* Primary Reading Content */
+@utility text-body {
+  font-size: 1rem; /* 16px */
+  line-height: 1.75;
+  font-weight: 400;
+  color: var(--text-soft);
+}
+
+/* Secondary / Descriptive Content */
+@utility text-body-sm {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--text-soft);
+}
+
+/* Muted Information */
+@utility text-muted {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Labels / Captions / Small Prints */
+@utility text-caption {
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Code / Technical Data */
+@utility text-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+}
+
+/* =========================================
+   📦 Surface & Component Utilities
+   ========================================= */
+
+@utility surface-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+}
+
+@utility interactive-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+  }
+}
+
+@utility flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* =========================================
+   🖱 Scrollbar Styling
+   ========================================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
