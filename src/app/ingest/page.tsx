@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Upload,
   FileText,
@@ -10,16 +12,9 @@ import {
   CloudUpload,
 } from "lucide-react";
 import { ingestKnowledgeAction } from "@/actions/ingest";
+import { IngestSchema, IngestFormValues } from "@/schemas/ingest";
 
 type FileStatus = "pending" | "processing" | "done" | "error";
-
-interface IngestFile {
-  id: string;
-  name: string;
-  size: number;
-  status: FileStatus;
-  rawFile: File;
-}
 
 const STATUS_CONFIG: Record<
   FileStatus,
@@ -56,23 +51,67 @@ function formatBytes(bytes: number) {
 }
 
 export default function IngestPage() {
-  const [files, setFiles] = useState<IngestFile[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [fileStatuses, setFileStatuses] = useState<Record<string, FileStatus>>(
+    {},
+  );
 
-  const addFiles = useCallback((incoming: FileList | null) => {
-    if (!incoming) return;
-    const newFiles: IngestFile[] = Array.from(incoming).map((f) => ({
-      id: `${f.name}-${Date.now()}`,
-      name: f.name,
-      size: f.size,
-      status: "pending",
-      rawFile: f,
-    }));
-    setFiles((prev) => [...prev, ...newFiles]);
-  }, []);
+  const {
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<IngestFormValues>({
+    resolver: zodResolver(IngestSchema),
+    defaultValues: { files: [] },
+  });
 
-  const removeFile = (id: string) =>
-    setFiles((prev) => prev.filter((f) => f.id !== id));
+  const selectedFiles = watch("files") || [];
+
+  const handleIndex = async (data: IngestFormValues) => {
+    // بروزرسانی وضعیت به processing
+    const initialStatuses: Record<string, FileStatus> = {};
+    data.files.forEach((f) => (initialStatuses[f.name] = "processing"));
+    setFileStatuses(initialStatuses);
+
+    try {
+      const formData = new FormData();
+      data.files.forEach((f) => formData.append("files", f));
+
+      const result = await ingestKnowledgeAction(formData);
+
+      if (result.success) {
+        const doneStatuses: Record<string, FileStatus> = {};
+        data.files.forEach((f) => (doneStatuses[f.name] = "done"));
+        setFileStatuses(doneStatuses);
+        // اگر خواستی بعد از موفقیت لیست خالی شود: reset();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err) {
+      console.error(err);
+      const errorStatuses: Record<string, FileStatus> = {};
+      data.files.forEach((f) => (errorStatuses[f.name] = "error"));
+      setFileStatuses(errorStatuses);
+    }
+  };
+
+  const addFiles = useCallback(
+    (incoming: FileList | null) => {
+      if (!incoming) return;
+      const newFiles = Array.from(incoming);
+      setValue("files", [...selectedFiles, ...newFiles], {
+        shouldValidate: true,
+      });
+    },
+    [selectedFiles, setValue],
+  );
+
+  const removeFile = (name: string) => {
+    const updated = selectedFiles.filter((f) => f.name !== name);
+    setValue("files", updated, { shouldValidate: true });
+  };
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -83,43 +122,8 @@ export default function IngestPage() {
     [addFiles],
   );
 
-  const pendingCount = files.filter((f) => f.status === "pending").length;
-  const handleIndex = async () => {
-    const pendingFiles = files.filter((f) => f.status === "pending");
-    if (pendingFiles.length === 0) return;
+  const pendingCount = selectedFiles.length;
 
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.status === "pending" ? { ...f, status: "processing" } : f,
-      ),
-    );
-
-    try {
-      const formData = new FormData();
-      pendingFiles.forEach((f) => {
-        formData.append("files", f.rawFile);
-      });
-
-      const result = await ingestKnowledgeAction(formData);
-
-      if (result.success) {
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.status === "processing" ? { ...f, status: "done" } : f,
-          ),
-        );
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (err) {
-      console.error(err);
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.status === "processing" ? { ...f, status: "error" } : f,
-        ),
-      );
-    }
-  };
   return (
     <div className="flex-1 flex flex-col p-8 gap-8 max-w-4xl mx-auto w-full">
       {/* Header */}
@@ -147,6 +151,7 @@ export default function IngestPage() {
               ? "border-primary bg-primary-soft scale-[1.01]"
               : "border-border hover:border-primary hover:bg-primary-soft"
           }
+          ${errors.files ? "border-danger bg-danger-soft" : ""}
         `}
         onClick={() => document.getElementById("file-input")?.click()}
       >
@@ -154,7 +159,6 @@ export default function IngestPage() {
           id="file-input"
           type="file"
           multiple
-          accept=".pdf,.txt,.md,.docx"
           className="hidden"
           onChange={(e) => addFiles(e.target.files)}
         />
@@ -177,37 +181,54 @@ export default function IngestPage() {
         </div>
       </div>
 
+      {/* Global Error Message */}
+      {errors.files && !Array.isArray(errors.files) && (
+        <p className="text-danger text-sm font-medium">
+          {(errors.files as any).message}
+        </p>
+      )}
+
       {/* File Queue */}
-      {files.length > 0 && (
+      {selectedFiles.length > 0 && (
         <div className="surface-card p-0! overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <h2 className="text-headline">
               Queue
               <span className="ml-2 text-sm font-normal text-text-muted">
-                {files.length} file{files.length !== 1 ? "s" : ""}
+                {selectedFiles.length} file
+                {selectedFiles.length !== 1 ? "s" : ""}
               </span>
             </h2>
             {pendingCount > 0 && (
               <button
-                onClick={handleIndex}
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleSubmit(handleIndex)}
                 className="
                 flex items-center gap-2 px-4 py-2 rounded-sm
                 bg-primary text-white text-sm font-medium
-                hover:bg-(--primary-hover) transition-colors
+                hover:bg-(--primary-hover) transition-colors disabled:opacity-50
               "
               >
-                <Upload size={14} />
+                {isSubmitting ? (
+                  <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                ) : (
+                  <Upload size={14} />
+                )}
                 Index {pendingCount} file{pendingCount !== 1 ? "s" : ""}
               </button>
             )}
           </div>
 
           <ul className="divide-y divide-border">
-            {files.map((file) => {
-              const cfg = STATUS_CONFIG[file.status];
+            {selectedFiles.map((file, index) => {
+              const status = fileStatuses[file.name] || "pending";
+              const cfg = STATUS_CONFIG[status];
+              const fileError = (errors.files as any)?.[index]?.message;
+
               return (
                 <li
-                  key={file.id}
+                  key={`${file.name}-${index}`}
                   className="flex items-center gap-4 px-5 py-3.5 hover:bg-surface-muted transition-colors"
                 >
                   <div className="w-9 h-9 rounded-sm bg-primary-soft flex-center text-primary shrink-0">
@@ -222,13 +243,17 @@ export default function IngestPage() {
                     </p>
                   </div>
                   <div
-                    className={`flex items-center gap-1.5 text-xs font-medium ${cfg.color}`}
+                    className={`flex items-center gap-1.5 text-xs font-medium ${fileError ? "text-danger" : cfg.color}`}
                   >
-                    {cfg.icon}
-                    {cfg.label}
+                    {fileError ? <AlertCircle size={14} /> : cfg.icon}
+                    {fileError || cfg.label}
                   </div>
                   <button
-                    onClick={() => removeFile(file.id)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(file.name);
+                    }}
                     className="text-text-muted hover:text-danger transition-colors p-1 rounded"
                   >
                     <X size={14} />
@@ -241,7 +266,7 @@ export default function IngestPage() {
       )}
 
       {/* Empty state */}
-      {files.length === 0 && (
+      {selectedFiles.length === 0 && (
         <div className="flex-center flex-col gap-3 py-8 text-center">
           <p className="text-body-sm">No files queued yet.</p>
         </div>
