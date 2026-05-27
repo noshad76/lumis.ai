@@ -1,26 +1,43 @@
-export function getSparseEmbedding(text: string): {
-  indices: number[];
-  values: number[];
-} {
-  const tokens = text.toLowerCase().match(/\b\w+\b/g) || [];
+import { AutoTokenizer } from "@xenova/transformers";
 
-  const tokenCounts: Record<string, number> = {};
-  for (const token of tokens) {
-    tokenCounts[token] = (tokenCounts[token] || 0) + 1;
+// لود کردن توکنایزر (در محیط سرور کش می‌شود)
+let tokenizer: any = null;
+
+export async function getSparseEmbedding(
+  text: string,
+): Promise<{ indices: number[]; values: number[] }> {
+  if (!tokenizer) {
+    // استفاده از یک توکنایزر استاندارد مثل BERT/RoBERTa
+    tokenizer = await AutoTokenizer.from_pretrained(
+      "Xenova/bert-base-multilingual-cased",
+    );
+  }
+
+  // ۱. توکنایز کردن متن به Token IDها (این همان چیزی است که دنبالش بودی)
+  const { input_ids } = await tokenizer(text, {
+    padding: false,
+    truncation: true,
+  });
+
+  const ids = input_ids.data; // این‌ها آیدی‌های استاندارد لغت‌نامه BERT هستند
+  const tokenCounts: Record<number, number> = {};
+
+  // ۲. محاسبه فراوانی (TF) روی Token IDهای واقعی مدل
+  for (const id of ids) {
+    const idNum = Number(id);
+    // حذف توکن‌های کنترلی (مثل [CLS], [SEP], [PAD])
+    if (idNum <= 103) continue;
+
+    tokenCounts[idNum] = (tokenCounts[idNum] || 0) + 1;
   }
 
   const indices: number[] = [];
   const values: number[] = [];
-  const VOCAB_SIZE = 100000;
 
-  for (const [token, count] of Object.entries(tokenCounts)) {
-    let hash = 0;
-    for (let i = 0; i < token.length; i++) {
-      hash = (hash << 5) - hash + token.charCodeAt(i);
-      hash |= 0;
-    }
-    indices.push(Math.abs(hash) % VOCAB_SIZE);
-    values.push(count);
+  for (const [id, count] of Object.entries(tokenCounts)) {
+    indices.push(parseInt(id));
+    // استفاده از Log-scaling برای وزن‌دهی
+    values.push(Math.log1p(count));
   }
 
   return { indices, values };

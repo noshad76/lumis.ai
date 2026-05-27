@@ -17,6 +17,14 @@ export const createCollectionIfMissing = async (vectorSize = 384) => {
         sparse: { index: { on_disk: true } },
       },
     });
+
+    const fieldsToIndex = ["file_path", "source_id", "tags"];
+    for (const field of fieldsToIndex) {
+      await qdrant.createPayloadIndex(name, {
+        field_name: field,
+        field_schema: "keyword",
+      });
+    }
   }
   return qdrant.getCollection(name);
 };
