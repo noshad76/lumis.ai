@@ -13,6 +13,9 @@ export const createCollectionIfMissing = async (vectorSize = 384) => {
         size: vectorSize,
         distance: "Cosine",
       },
+      sparse_vectors: {
+        sparse: { index: { on_disk: true } },
+      },
     });
   }
   return qdrant.getCollection(name);

@@ -69,12 +69,11 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="px-4 py-4 border-t border-border">
         <div className="flex items-center gap-3 px-2 py-2 rounded-[var(--radius-sm)] hover:bg-accent-soft cursor-pointer transition-colors">
-          <div className="w-8 h-8 rounded-full bg-primary-soft flex-center text-primary font-bold text-sm">
-            L
-          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text truncate">Lumis User</p>
-            <p className="text-xs text-text-muted truncate">v0.1.0 — MVP</p>
+            <p className="text-xs font-medium text-text truncate">
+              Powered by
+              <span className="text-primary"> Amir Hossein Noshad</span>
+            </p>
           </div>
         </div>
       </div>

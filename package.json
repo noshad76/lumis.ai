@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "test": "vitest"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.18.0",
@@ -20,7 +21,6 @@
     "pdf-parse-new": "^2.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "sharp": "^0.34.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -31,6 +31,11 @@
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
+  },
+  "overrides": {
+    "protobufjs": "^7.2.4",
+    "postcss": "^8.4.31"
   }
 }

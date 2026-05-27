@@ -1,10 +1,9 @@
 import { pipeline, env as xenovaEnv } from "@xenova/transformers";
 import { env } from "../config/env";
-xenovaEnv.remoteHost = env.HF_ENDPOINT;
-xenovaEnv.localModelPath = "./models-cache/";
+import path from "path";
+// xenovaEnv.remoteHost = env.HF_ENDPOINT;
+xenovaEnv.localModelPath = path.join(process.cwd(), "models-cache");
 xenovaEnv.allowRemoteModels = true;
-xenovaEnv.backends.onnx.wasm.proxy = true;
-xenovaEnv.allowLocalModels = true;
 let embedder: any = null;
 
 export const getEmbedding = async (text: string) => {
