@@ -1,7 +1,10 @@
-import { Ollama } from "ollama";
+import OpenAI from "openai";
 import { env } from "../config/env";
 
-const ollama = new Ollama({ host: env.OLLAMA_URL });
+const client = new OpenAI({
+  apiKey: env.LLM_API_KEY,
+  baseURL: env.LLM_BASE_URL,
+});
 
 export type CompleteInput = {
   prompt: string;
@@ -9,6 +12,7 @@ export type CompleteInput = {
   temperature?: number;
   top_p?: number;
 };
+
 export type CompleteOutput = {
   text: string;
   model: string;
@@ -19,22 +23,33 @@ export const completeOnce = async (
   input: CompleteInput,
 ): Promise<CompleteOutput> => {
   const model = input.model ?? env.LLM_MODEL;
-  const res = await ollama.generate({
+
+  const res = await client.chat.completions.create({
     model,
-    prompt: input.prompt,
-    stream: false, //todo must be changed
-    options: {
-      temperature: input.temperature ?? 0.2,
-      top_p: input.top_p,
-    },
+    messages: [
+      {
+        role: "user",
+        content: input.prompt,
+      },
+    ],
+    temperature: input.temperature ?? 0.2,
+    top_p: input.top_p,
   });
+
   return {
-    done: !!res.done,
-    text: res.response ?? "",
+    done: true,
+    text: res.choices?.[0]?.message?.content ?? "",
     model: res.model ?? model,
   };
 };
 
-export const listLocalModels = () => {
-  return ollama.list();
+export const listLocalModels = async () => {
+  return {
+    data: [
+      {
+        id: env.LLM_MODEL,
+        object: "model",
+      },
+    ],
+  };
 };

@@ -10,6 +10,8 @@ const ServerEnvSchema = z.object({
   HF_ENDPOINT: z.url(),
 
   QDRANT_COLLECTION: z.string().min(1),
+  LLM_API_KEY: z.string().min(1),
+  LLM_BASE_URL: z.string().min(1),
   KNOWLEDGE_DIR: z.string().min(1),
   LLM_MODEL: z.string().min(1),
   EMBED_MODEL: z.string().min(1),

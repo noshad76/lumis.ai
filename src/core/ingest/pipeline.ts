@@ -3,13 +3,29 @@ import crypto from "crypto";
 import path from "path";
 import { env } from "../config/env";
 import { chunkText } from "./chunker";
-import { loadTextFile, loadPdfFile } from "./loaders";
+import { loadTextFile, loadPdfPages } from "./loaders";
 import { IngestionStats } from "./types";
 import { createCollectionIfMissing, qdrant } from "../storage/qdrant";
 import { getEmbedding } from "../embed/local-embeded";
 
 const EMBEDDING_DIMENSION = 384;
 const BATCH_SIZE = 50;
+
+type PreparedChunk = {
+  text: string;
+  chunk_index: number;
+  page?: number;
+  section?: string;
+};
+export function normalizeChunkText(text: string): string {
+  return text
+    .normalize("NFKC")
+    .replace(/\u0000/g, " ")
+    .replace(/[\u200B-\u200D\uFEFF]/g, " ")
+    .replace(/[\u202A-\u202E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export const runIngestionPipeline = async (
   knowledgePath: string,
@@ -34,40 +50,103 @@ export const runIngestionPipeline = async (
   for (const file of files) {
     try {
       const ext = path.extname(file).toLowerCase();
-      const content =
-        ext === ".pdf" ? await loadPdfFile(file) : await loadTextFile(file);
+      const title = path.basename(file);
 
-      if (!content?.trim()) {
+      const preparedChunks: PreparedChunk[] = [];
+      let fileHashSource = "";
+
+      if (ext === ".pdf") {
+        const pages = await loadPdfPages(file);
+
+        if (!pages.length) {
+          stats.skipped++;
+          continue;
+        }
+
+        fileHashSource = pages.map((p) => p.text).join("\n\n");
+
+        let globalChunkIndex = 0;
+
+        for (const pdfPage of pages) {
+          if (!pdfPage.text?.trim()) continue;
+
+          const chunks = chunkText({ text: pdfPage.text });
+
+          for (const chunk of chunks) {
+            preparedChunks.push({
+              text: chunk,
+              chunk_index: globalChunkIndex++,
+              page: pdfPage.page,
+            });
+          }
+        }
+      } else {
+        const content = await loadTextFile(file);
+
+        if (!content?.trim()) {
+          stats.skipped++;
+          continue;
+        }
+
+        fileHashSource = content;
+
+        const chunks = chunkText({ text: content });
+
+        chunks.forEach((chunk, index) => {
+          preparedChunks.push({
+            text: chunk,
+            chunk_index: index,
+          });
+        });
+      }
+
+      if (!preparedChunks.length) {
         stats.skipped++;
         continue;
       }
 
-      const fileHash = crypto.createHash("md5").update(content).digest("hex");
-      const textChunks = chunkText({ text: content });
+      const fileHash = crypto
+        .createHash("md5")
+        .update(fileHashSource)
+        .digest("hex");
 
-      const points = await Promise.all(
-        textChunks.map(async (text, index) => {
-          const vector = await getEmbedding(text);
+      const points = [];
+
+      for (const chunk of preparedChunks) {
+        try {
+          const safeText = normalizeChunkText(chunk.text);
+
+          if (!safeText) continue;
+
+          const vector = await getEmbedding(safeText);
+
           const chunkId = crypto
             .createHash("md5")
-            .update(`${fileHash}-${index}`)
+            .update(`${fileHash}-${chunk.chunk_index}`)
             .digest("hex")
             .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
 
-          return {
+          points.push({
             id: chunkId,
-            vector: vector,
+            vector,
             payload: {
-              text,
+              text: safeText,
               source_id: fileHash,
               file_path: file,
-              title: path.basename(file),
+              title,
               extension: ext,
-              chunk_index: index,
+              chunk_index: chunk.chunk_index,
+              ...(typeof chunk.page === "number" ? { page: chunk.page } : {}),
+              ...(chunk.section ? { section: chunk.section } : {}),
             },
-          };
-        }),
-      );
+          });
+        } catch (error) {
+          console.error(
+            `Embedding failed for file=${title}, chunk_index=${chunk.chunk_index}, page=${chunk.page ?? "-"}:`,
+            error instanceof Error ? error.message : error,
+          );
+        }
+      }
 
       for (let i = 0; i < points.length; i += BATCH_SIZE) {
         const batch = points.slice(i, i + BATCH_SIZE);
@@ -79,9 +158,8 @@ export const runIngestionPipeline = async (
 
       stats.processed++;
       stats.totalChunks += points.length;
-      console.log(
-        `Successfully indexed: ${path.basename(file)} (${points.length} chunks)`,
-      );
+
+      console.log(`Successfully indexed: ${title} (${points.length} chunks)`);
     } catch (err) {
       stats.skipped++;
       console.error(

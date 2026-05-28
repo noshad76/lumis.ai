@@ -21,6 +21,15 @@ services:
     volumes:
       - C:/Users/Amir Hossein/.ollama/models:/root/.ollama/models
       - ollama_data:/root/.ollama
+    # --- این بخش را اضافه کن ---
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # ---------------------------
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 10s

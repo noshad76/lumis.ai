@@ -1,3 +1,10 @@
+// app/chat/page.tsx
+import ChatClient from "@/components/ChatClient";
+
 export default function ChatPage() {
-  return <div className="p-6">Chat Page (Skeleton)</div>;
+  return (
+    <div className="flex flex-col h-full">
+      <ChatClient />
+    </div>
+  );
 }

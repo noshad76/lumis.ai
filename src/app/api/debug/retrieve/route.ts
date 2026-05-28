@@ -23,7 +23,7 @@ export const GET = async (req: NextRequest) => {
     );
   }
 
-  const limit = limitStr ? parseInt(limitStr, 10) : 5;
+  const limit = limitStr ? parseInt(limitStr, 10) : 10;
 
   try {
     const cleanChunks = await hybridRetrieve({

@@ -3,12 +3,10 @@ import { RetrievalChunk } from "./types";
 export interface SimilarityThresholds {
   content: number;
   source_id?: number;
-  tags?: number;
 }
 
-const DEFAULT_SIMILARITY_THRESHOLDS: SimilarityThresholds = {
+const DEFAULT_THRESHOLDS: SimilarityThresholds = {
   content: 0.8,
-  source_id: 0.95,
 };
 
 const getJaccardSimilarity = (str1: string, str2: string): number => {
@@ -16,39 +14,36 @@ const getJaccardSimilarity = (str1: string, str2: string): number => {
   const s2 = new Set(str2.toLowerCase().split(/\s+/));
   const intersection = new Set([...s1].filter((x) => s2.has(x)));
   const union = new Set([...s1, ...s2]);
-  return intersection.size / union.size;
+  return union.size === 0 ? 0 : intersection.size / union.size;
 };
 
 export const deduplicateChunks = (
   chunks: RetrievalChunk[],
-  config: SimilarityThresholds = DEFAULT_SIMILARITY_THRESHOLDS,
+  config: SimilarityThresholds = DEFAULT_THRESHOLDS,
 ): RetrievalChunk[] => {
-  if (!chunks || chunks.length === 0) return [];
+  if (!chunks.length) return [];
 
   const uniqueChunks: RetrievalChunk[] = [];
-  const seenHashes = new Set<string>();
+
+  const seenSections = new Set<string>();
 
   for (const chunk of chunks) {
-    const contentHash = hashString(chunk.text);
+    const sectionKey = `${chunk.metadata.file_path}#${chunk.metadata.section || "default"}`;
 
-    if (seenHashes.has(contentHash)) continue;
+    const contentHash = chunk.metadata.hash;
+    if (seenSections.has(`${sectionKey}#${contentHash}`)) continue;
 
     const isTooSimilar = uniqueChunks.some((prevChunk) => {
-      const lengthRatio =
-        Math.min(chunk.text.length, prevChunk.text.length) /
-        Math.max(chunk.text.length, prevChunk.text.length);
+      const isSameFile =
+        prevChunk.metadata.file_path === chunk.metadata.file_path;
+      const threshold = isSameFile ? 0.7 : config.content;
 
-      if (lengthRatio > config.content) {
-        return (
-          getJaccardSimilarity(chunk.text, prevChunk.text) > config.content
-        );
-      }
-      return false;
+      return getJaccardSimilarity(chunk.text, prevChunk.text) > threshold;
     });
 
     if (!isTooSimilar) {
       uniqueChunks.push(chunk);
-      seenHashes.add(contentHash);
+      seenSections.add(`${sectionKey}#${contentHash}`);
     }
   }
 
@@ -62,44 +57,27 @@ export const diversifyChunks = (
   if (chunks.length <= topN) return chunks;
 
   const result: RetrievalChunk[] = [];
-  const sourceBuckets: Record<string, RetrievalChunk[]> = {};
+  const buckets: Record<string, RetrievalChunk[]> = {};
 
   for (const chunk of chunks) {
-    const source = chunk.metadata.source_id || "unknown";
-    if (!sourceBuckets[source]) sourceBuckets[source] = [];
-    sourceBuckets[source].push(chunk);
+    const key = chunk.metadata.source_id || "unknown";
+    if (!buckets[key]) buckets[key] = [];
+    buckets[key].push(chunk);
   }
 
-  const sourceIds = Object.keys(sourceBuckets);
-  let round = 0;
-
-  while (result.length < topN && sourceIds.length > 0) {
-    for (let i = 0; i < sourceIds.length; i++) {
-      const sourceId = sourceIds[i];
-      const bucket = sourceBuckets[sourceId];
-
+  const keys = Object.keys(buckets);
+  while (result.length < topN && keys.length > 0) {
+    for (let i = 0; i < keys.length; i++) {
+      const bucket = buckets[keys[i]];
       if (bucket.length > 0) {
         result.push(bucket.shift()!);
       } else {
-        sourceIds.splice(i, 1);
+        keys.splice(i, 1);
         i--;
       }
-
       if (result.length >= topN) break;
     }
-    round++;
   }
 
   return result;
-};
-
-const hashString = (str: string): string => {
-  let hash = 0;
-  if (str.length === 0) return "0";
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return String(Math.abs(hash));
 };

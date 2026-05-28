@@ -2,7 +2,7 @@ import { chunkTextInput } from "./types";
 
 export const chunkText = ({
   size = 1000,
-  overlap = 200,
+  overlap = 300,
   text,
 }: chunkTextInput): string[] => {
   const chunks: string[] = [];
