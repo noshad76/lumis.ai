@@ -7,8 +7,9 @@ import { loadTextFile, loadPdfPages } from "./loaders";
 import { IngestionStats } from "./types";
 import { createCollectionIfMissing, qdrant } from "../storage/qdrant";
 import { getEmbedding } from "../embed/local-embeded";
+import { getSparseEmbedding } from "../embed/sparseEmbedded";
 
-const EMBEDDING_DIMENSION = 384;
+const EMBEDDING_DIMENSION = 768;
 const BATCH_SIZE = 50;
 
 type PreparedChunk = {
@@ -19,7 +20,7 @@ type PreparedChunk = {
 };
 export function normalizeChunkText(text: string): string {
   return text
-    .normalize("NFKC")
+    .normalize("NFC")
     .replace(/\u0000/g, " ")
     .replace(/[\u200B-\u200D\uFEFF]/g, " ")
     .replace(/[\u202A-\u202E]/g, " ")
@@ -118,8 +119,12 @@ export const runIngestionPipeline = async (
 
           if (!safeText) continue;
 
-          const vector = await getEmbedding(safeText);
-
+          const dense = await getEmbedding(`passage: ${safeText}`);
+          const sparse = await getSparseEmbedding(safeText);
+          const chunkHash = crypto
+            .createHash("md5")
+            .update(safeText)
+            .digest("hex");
           const chunkId = crypto
             .createHash("md5")
             .update(`${fileHash}-${chunk.chunk_index}`)
@@ -128,11 +133,16 @@ export const runIngestionPipeline = async (
 
           points.push({
             id: chunkId,
-            vector,
+            vector: {
+              dense,
+              sparse: { indices: sparse.indices, values: sparse.values },
+            },
             payload: {
               text: safeText,
+              text_raw: chunk.text,
               source_id: fileHash,
               file_path: file,
+              hash: chunkHash,
               title,
               extension: ext,
               chunk_index: chunk.chunk_index,
@@ -162,10 +172,13 @@ export const runIngestionPipeline = async (
       console.log(`Successfully indexed: ${title} (${points.length} chunks)`);
     } catch (err) {
       stats.skipped++;
-      console.error(
-        `❌ Error processing ${file}:`,
-        err instanceof Error ? err.message : err,
-      );
+      console.error(`❌ Error processing ${file}:`);
+      console.error(err);
+
+      if (err instanceof Error) {
+        console.error("message:", err.message);
+        console.error("stack:", err.stack);
+      }
     }
   }
 

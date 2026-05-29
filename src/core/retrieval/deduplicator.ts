@@ -1,20 +1,30 @@
 import { RetrievalChunk } from "./types";
 
 export interface SimilarityThresholds {
-  content: number;
-  source_id?: number;
+  content: number; // cosine threshold
+  sameFile?: number; // stricter threshold for same file
 }
 
 const DEFAULT_THRESHOLDS: SimilarityThresholds = {
-  content: 0.8,
+  content: 0.95,
+  sameFile: 0.9,
 };
 
-const getJaccardSimilarity = (str1: string, str2: string): number => {
-  const s1 = new Set(str1.toLowerCase().split(/\s+/));
-  const s2 = new Set(str2.toLowerCase().split(/\s+/));
-  const intersection = new Set([...s1].filter((x) => s2.has(x)));
-  const union = new Set([...s1, ...s2]);
-  return union.size === 0 ? 0 : intersection.size / union.size;
+const cosineSimilarity = (a: number[], b: number[]): number => {
+  if (!a.length || !b.length || a.length !== b.length) return 0;
+
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 };
 
 export const deduplicateChunks = (
@@ -24,26 +34,39 @@ export const deduplicateChunks = (
   if (!chunks.length) return [];
 
   const uniqueChunks: RetrievalChunk[] = [];
-
-  const seenSections = new Set<string>();
+  const seenHashes = new Set<string>();
 
   for (const chunk of chunks) {
-    const sectionKey = `${chunk.metadata.file_path}#${chunk.metadata.section || "default"}`;
+    const filePath = chunk.metadata.file_path || "";
+    const section = chunk.metadata.section || "default";
+    const hash = chunk.metadata.hash;
 
-    const contentHash = chunk.metadata.hash;
-    if (seenSections.has(`${sectionKey}#${contentHash}`)) continue;
+    if (hash) {
+      const exactKey = `${filePath}#${section}#${hash}`;
+      if (seenHashes.has(exactKey)) continue;
+      seenHashes.add(exactKey);
+    }
 
     const isTooSimilar = uniqueChunks.some((prevChunk) => {
-      const isSameFile =
-        prevChunk.metadata.file_path === chunk.metadata.file_path;
-      const threshold = isSameFile ? 0.7 : config.content;
+      if (!chunk.dense_vector || !prevChunk.dense_vector) return false;
 
-      return getJaccardSimilarity(chunk.text, prevChunk.text) > threshold;
+      const isSameFile =
+        !!prevChunk.metadata.file_path &&
+        !!chunk.metadata.file_path &&
+        prevChunk.metadata.file_path === chunk.metadata.file_path;
+
+      const threshold = isSameFile
+        ? (config.sameFile ?? config.content)
+        : config.content;
+
+      return (
+        cosineSimilarity(chunk.dense_vector, prevChunk.dense_vector) >=
+        threshold
+      );
     });
 
     if (!isTooSimilar) {
       uniqueChunks.push(chunk);
-      seenSections.add(`${sectionKey}#${contentHash}`);
     }
   }
 
@@ -56,25 +79,31 @@ export const diversifyChunks = (
 ): RetrievalChunk[] => {
   if (chunks.length <= topN) return chunks;
 
-  const result: RetrievalChunk[] = [];
-  const buckets: Record<string, RetrievalChunk[]> = {};
+  const buckets = new Map<string, RetrievalChunk[]>();
 
   for (const chunk of chunks) {
-    const key = chunk.metadata.source_id || "unknown";
-    if (!buckets[key]) buckets[key] = [];
-    buckets[key].push(chunk);
+    const key =
+      chunk.metadata.source_id || chunk.metadata.file_path || "unknown";
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(chunk);
   }
 
-  const keys = Object.keys(buckets);
-  while (result.length < topN && keys.length > 0) {
-    for (let i = 0; i < keys.length; i++) {
-      const bucket = buckets[keys[i]];
-      if (bucket.length > 0) {
-        result.push(bucket.shift()!);
-      } else {
-        keys.splice(i, 1);
+  const result: RetrievalChunk[] = [];
+  const activeKeys = [...buckets.keys()];
+
+  while (result.length < topN && activeKeys.length > 0) {
+    for (let i = 0; i < activeKeys.length; i++) {
+      const key = activeKeys[i];
+      const bucket = buckets.get(key)!;
+
+      if (bucket.length === 0) {
+        activeKeys.splice(i, 1);
         i--;
+        continue;
       }
+
+      result.push(bucket.shift()!);
+
       if (result.length >= topN) break;
     }
   }

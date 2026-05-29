@@ -3,19 +3,9 @@ import { env } from "../config/env";
 import { getEmbedding } from "../embed/local-embeded";
 import { getSparseEmbedding } from "../embed/sparseEmbedded";
 import { deduplicateChunks, diversifyChunks } from "./deduplicator";
-import { RetrievalChunk } from "./types";
+import { RetrievalChunk,RetrievalOptions } from "./types";
 import { applyAdvancedBoosting } from "./advancedBoosting";
 
-export interface RetrievalOptions {
-  query: string;
-  topK?: number;
-  topN?: number;
-  filter?: {
-    source_id?: string;
-    file_path?: string;
-    tags?: string[];
-  };
-}
 
 export async function hybridRetrieve({
   query,
@@ -23,8 +13,9 @@ export async function hybridRetrieve({
   topN = 10,
   filter,
 }: RetrievalOptions): Promise<RetrievalChunk[]> {
+  const denseQuery = `query: ${query}`;
   const [denseVector, sparseVector] = await Promise.all([
-    getEmbedding(query),
+    getEmbedding(denseQuery),
     getSparseEmbedding(query),
   ]);
 
@@ -41,24 +32,30 @@ export async function hybridRetrieve({
 
   const response = await qdrant.query(env.QDRANT_COLLECTION, {
     prefetch: [
-      { query: denseVector, filter: qdrantFilter, limit: topK * 20 },
+      { query: denseVector, filter: qdrantFilter, limit: 50, using: "dense" },
       {
         query: { indices: sparseVector.indices, values: sparseVector.values },
         using: "sparse",
         filter: qdrantFilter,
-        limit: topK * 20,
+        limit: 50,
       },
     ],
-    query: { rrf: { weights: [0.2, 0.8] } },
+    query: { rrf: { weights: [0.6, 0.4] } },
     limit: topK,
     with_payload: true,
+    with_vector: true,
   });
 
   const rawChunks: RetrievalChunk[] = response.points.map((p) => {
     const payload = p.payload || {};
+    const vectors = p.vector as { dense?: number[] } | number[] | undefined;
+
+    const denseVector = Array.isArray(vectors) ? vectors : vectors?.dense;
+
     return {
       id: String(p.id),
-      score: p.score,
+      score: p.score ?? 0,
+      dense_vector: denseVector,
       text: (payload.text as string) || "",
       metadata: {
         source_id: (payload.source_id as string) || "unknown",

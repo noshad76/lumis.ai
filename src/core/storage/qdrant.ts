@@ -3,15 +3,14 @@ import { env } from "../config/env";
 
 export const qdrant = new QdrantClient({ url: env.QDRANT_URL });
 
-export const createCollectionIfMissing = async (vectorSize = 384) => {
+export const createCollectionIfMissing = async (vectorSize = 768) => {
   const name = env.QDRANT_COLLECTION;
   const collection = await qdrant.getCollections();
   const exists = collection.collections.some((c) => c.name == name);
   if (!exists) {
     await qdrant.createCollection(name, {
       vectors: {
-        size: vectorSize,
-        distance: "Cosine",
+        dense: { size: vectorSize, distance: "Cosine" },
       },
       sparse_vectors: {
         sparse: { index: { on_disk: true } },

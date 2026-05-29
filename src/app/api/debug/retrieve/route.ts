@@ -23,7 +23,7 @@ export const GET = async (req: NextRequest) => {
     );
   }
 
-  const limit = limitStr ? parseInt(limitStr, 10) : 10;
+  const limit = limitStr ? parseInt(limitStr, 10) : 5;
 
   try {
     const cleanChunks = await hybridRetrieve({
@@ -37,17 +37,18 @@ export const GET = async (req: NextRequest) => {
     });
 
     const formattedContext = buildContext(cleanChunks);
+    const publicChunks = cleanChunks.map(({ dense_vector, ...rest }) => rest);
 
     return NextResponse.json({
       success: true,
       query,
-      resultsCount: cleanChunks.length,
+      resultsCount: publicChunks.length,
       filtersApplied: {
         file_path: filePath,
         source_id: sourceId,
         tags: tags,
       },
-      chunks: cleanChunks,
+      chunks: publicChunks,
       formattedContext,
     });
   } catch (error: any) {

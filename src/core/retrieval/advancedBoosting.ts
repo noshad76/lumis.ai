@@ -16,7 +16,7 @@ export function applyAdvancedBoosting(
       const tags = chunk.metadata.tags?.map((t) => t.toLowerCase()) ?? [];
 
       if (text.includes(normalizedQuery)) {
-        boost += 1.5; 
+        boost += 0.4; 
       }
 
       let matchCount = 0;
@@ -30,8 +30,8 @@ export function applyAdvancedBoosting(
           boost += isNumeric ? 0.3 : 0.15;
         }
 
-        if (title.includes(term)) boost += 0.5;
-        if (section.includes(term)) boost += 0.3;
+        if (title.includes(term)) boost += 0.25;
+        if (section.includes(term)) boost += 0.15;
       });
 
       if (queryTerms.length > 0) {

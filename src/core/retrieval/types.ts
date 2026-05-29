@@ -2,6 +2,7 @@ export interface RetrievalChunk {
   id: string;
   score: number;
   text: string;
+  dense_vector?: number[];
   metadata: {
     source_id: string;
     file_path: string;
@@ -15,10 +16,10 @@ export interface RetrievalChunk {
   };
 }
 
-export interface RetrieveOptions {
+export interface RetrievalOptions {
   query: string;
   topK?: number;
-  filterFilePath?: string;
+  topN?: number;
   filter?: {
     source_id?: string;
     file_path?: string;

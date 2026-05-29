@@ -16,7 +16,7 @@ function buildContext(state: AgentStateType, maxChars = 8000): string {
 export async function synthesizeNode(state: AgentStateType) {
   const startTime = new Date().toISOString();
   const context = buildContext(state);
-
+  console.log(context);
   const historyBlock = (state.history ?? [])
     .slice(-6)
     .map((t) => `${t.role}: ${t.content}`)

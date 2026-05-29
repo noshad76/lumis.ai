@@ -1,44 +1,29 @@
-import { AutoTokenizer } from "@xenova/transformers";
+import { normalizeChunkText } from "../ingest/pipeline";
 
-// لود کردن توکنایزر (در محیط سرور کش می‌شود)
-let tokenizer: any = null;
+export async function getSparseEmbedding(text: string) {
+  const tokens = normalizeChunkText(text)
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((t) => t.length > 1);
 
-export async function getSparseEmbedding(
-  text: string,
-): Promise<{ indices: number[]; values: number[] }> {
-  if (!tokenizer) {
-    // استفاده از یک توکنایزر استاندارد مثل BERT/RoBERTa
-    tokenizer = await AutoTokenizer.from_pretrained(
-      "Xenova/bert-base-multilingual-cased",
-    );
+  const counts: Record<number, number> = {};
+
+  for (const token of tokens) {
+    const hash = simpleHash(token);
+    counts[hash] = (counts[hash] || 0) + 1;
   }
 
-  // ۱. توکنایز کردن متن به Token IDها (این همان چیزی است که دنبالش بودی)
-  const { input_ids } = await tokenizer(text, {
-    padding: false,
-    truncation: true,
-  });
-
-  const ids = input_ids.data; // این‌ها آیدی‌های استاندارد لغت‌نامه BERT هستند
-  const tokenCounts: Record<number, number> = {};
-
-  // ۲. محاسبه فراوانی (TF) روی Token IDهای واقعی مدل
-  for (const id of ids) {
-    const idNum = Number(id);
-    // حذف توکن‌های کنترلی (مثل [CLS], [SEP], [PAD])
-    if (idNum <= 103) continue;
-
-    tokenCounts[idNum] = (tokenCounts[idNum] || 0) + 1;
-  }
-
-  const indices: number[] = [];
-  const values: number[] = [];
-
-  for (const [id, count] of Object.entries(tokenCounts)) {
-    indices.push(parseInt(id));
-    // استفاده از Log-scaling برای وزن‌دهی
-    values.push(Math.log1p(count));
-  }
+  const indices = Object.keys(counts).map(Number);
+  const values = Object.values(counts).map((c) => Math.log1p(c));
 
   return { indices, values };
+}
+
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % 1000000;
 }
