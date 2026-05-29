@@ -389,7 +389,10 @@ function CitationsPanel({ citations }: { citations: AskOutput["citations"] }) {
       {open && (
         <ul className="divide-y divide-border border-t border-border">
           {citations.map((c) => (
-            <li key={c.chunk_id} className="px-3.5 py-3 space-y-1.5 bg-bg">
+            <li
+              key={`${c.source_id}:${c.file_path}:${c.chunk_index}`}
+              className="px-3.5 py-3 space-y-1.5 bg-bg"
+            >
               <p className="text-xs font-semibold text-text">
                 {c.title ?? "Untitled"}
               </p>

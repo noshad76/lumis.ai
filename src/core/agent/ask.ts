@@ -10,13 +10,14 @@ export async function ask(
     retrieved: [],
     history,
     citations: [],
+    confidence: 0,
     trace: [],
   });
 
   return {
-    answer: result.answer ?? "no answer generator",
+    answer: result.answer ?? "I don't know based on the available documents.",
     citations: result.citations ?? [],
-    confidence: 0.5,
+    confidence: result.confidence ?? 0,
     trace: result.trace ?? [],
   };
 }

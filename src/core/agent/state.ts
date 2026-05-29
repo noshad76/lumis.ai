@@ -19,6 +19,11 @@ export const AgentState = Annotation.Root({
     reducer: (_, right) => right,
     default: () => [],
   }),
+  confidence: Annotation<number>({
+    reducer: (_, right) => right,
+    default: () => 0,
+  }),
+
   trace: Annotation<TraceEvent[]>({
     reducer: (left, right) => [...left, ...right],
     default: () => [],

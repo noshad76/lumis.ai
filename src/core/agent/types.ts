@@ -10,14 +10,19 @@ export interface Citation {
   source_id: string;
   file_path: string;
   title?: string;
-  page?: number;
-  section?: string;
+  page?: number | null;
+  section?: string | null;
+  chunk_index: number;
   snippet: string;
-  chunk_id: string;
 }
+export type TraceStage =
+  | "planning"
+  | "retrieval"
+  | "synthesis"
+  | "verification";
 
 export interface TraceEvent {
-  stage: "planning" | "retrieval" | "synthesis";
+  stage: TraceStage;
   at: string;
   ok: boolean;
   meta?: Record<string, unknown>;
@@ -26,10 +31,11 @@ export interface TraceEvent {
 export interface AskOutput {
   answer: string;
   citations: Citation[];
-  confidence: number; //Todo
+  confidence: number;
   trace: TraceEvent[];
 }
 export interface ChatTurn {
   role: "user" | "assistant";
   content: string;
 }
+export type VerificationDecision = "answer" | "refusal" | "clarification";

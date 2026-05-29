@@ -1,8 +1,8 @@
 import { RetrievalChunk } from "./types";
 
 export interface SimilarityThresholds {
-  content: number; // cosine threshold
-  sameFile?: number; // stricter threshold for same file
+  content: number;
+  sameFile?: number;
 }
 
 const DEFAULT_THRESHOLDS: SimilarityThresholds = {

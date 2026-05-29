@@ -85,11 +85,11 @@ ${state.userQuestion}
         source_id: item.metadata.source_id,
         file_path: item.metadata.file_path,
         title: item.metadata.title,
-        page: item.metadata.page,
-        section: item.metadata.section,
-        snippet: item.text.slice(0, 250),
-        chunk_id: item.id,
-      }));
+        page: item.metadata.page ?? null,
+        section: item.metadata.section ?? null,
+        chunk_index: item.metadata.chunk_index,
+        snippet: item.text.slice(0, 250).trim(),
+      }));  
 
     const trace: TraceEvent = {
       stage: "synthesis",
