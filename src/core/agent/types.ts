@@ -39,3 +39,8 @@ export interface ChatTurn {
   content: string;
 }
 export type VerificationDecision = "answer" | "refusal" | "clarification";
+export type VerifyOutput = {
+  answer: string;
+  confidence: number;
+  trace: TraceEvent[];
+};

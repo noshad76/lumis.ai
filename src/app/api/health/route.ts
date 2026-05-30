@@ -1,4 +1,4 @@
-import { completeOnce, listLocalModels } from "@/core/llm/ollama";
+import { completeOnce, listLocalModels } from "@/core/llm/llm";
 import { listCollections } from "@/core/storage/qdrant";
 import { NextResponse } from "next/server";
 

@@ -1,6 +1,6 @@
 import type { AgentStateType } from "../state";
 import type { Citation, TraceEvent } from "../types";
-import { completeOnce } from "../../llm/ollama";
+import { completeOnce } from "../../llm/llm";
 
 function buildContext(state: AgentStateType, maxChars = 8000): string {
   let out = "";
@@ -89,7 +89,7 @@ ${state.userQuestion}
         section: item.metadata.section ?? null,
         chunk_index: item.metadata.chunk_index,
         snippet: item.text.slice(0, 250).trim(),
-      }));  
+      }));
 
     const trace: TraceEvent = {
       stage: "synthesis",

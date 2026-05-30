@@ -1,5 +1,6 @@
 // app/chat/page.tsx
-import ChatClient from "@/components/ChatClient";
+
+import ChatClient from "@/components";
 
 export default function ChatPage() {
   return (

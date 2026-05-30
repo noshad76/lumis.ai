@@ -1,5 +1,5 @@
 import { AgentStateType } from "../state";
-import { TraceEvent, VerificationDecision } from "../types";
+import { TraceEvent, VerificationDecision, VerifyOutput } from "../types";
 
 function clamp01(x: number) {
   if (Number.isNaN(x)) return 0;
@@ -166,7 +166,7 @@ function buildFinalAnswer(
   return "I don't know based on the available documents.";
 }
 
-export async function verifyNode(state: AgentStateType) {
+export async function verifyNode(state: AgentStateType):Promise<VerifyOutput> {
   const at = new Date().toISOString();
 
   try {
